@@ -1,0 +1,14 @@
+#!/bin/bash
+
+if [ $1 ] ; then
+  grep="grep $1"
+else
+  grep="cat"
+fi
+
+if ! [ -d src/test/java ] ; then
+  exit 0
+fi
+
+
+find src/test/java -name '*.java' | $grep | xargs grep -l '@Test' | perl -npe 's#src/test/java/##; s#\.java$## ; s#/#.#g'

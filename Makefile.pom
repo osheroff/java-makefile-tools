@@ -1,0 +1,3 @@
+POM_DEPENDS=$(shell $(BUILD_SUPPORT_DIR)/maven_fetcher -p -o target/dependency)
+POM_TEST_DEPENDS=$(shell $(BUILD_SUPPORT_DIR)/maven_fetcher -p -o target/dependency-test -s test)
+
