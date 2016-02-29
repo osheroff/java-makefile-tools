@@ -2,7 +2,7 @@ SCALAC ?= scalac
 SCALAC_FLAGS += -d target/classes
 SCALAC_FLAGS += -sourcepath src/main/scala:src/test/scala
 SCALAC_FLAGS += -g:vars -target:jvm-1.7 -encoding UTF-8
-SCALAC_SOURCE = $(shell find src/main/scala -name '*.scala')
+SCALA_SOURCE = $(shell find src/main/scala -name '*.scala')
 
 ifdef POM_DEPENDS
 SCALA_CLASSPATH := -classpath $(POM_DEPENDS)
@@ -19,7 +19,13 @@ target/.scala: $(SCALA_SOURCE)
 	if test -d src/main/resources; then cp -a src/main/resources/* target/classes ; fi
 	@touch target/.scala
 
-compile-scala: target/.java
+compile-scala: target/.scala
+
+clean:
+	rm -f  target/.scala target/.scala-test
+	rm -rf target/classes
+	rm -rf target/generated-sources
+	rm -f  target/*.jar
 
 ###JAVA_TEST_SOURCE=$(shell test -d src/test/java && find src/test/java -name '*.java')
 ###
@@ -36,11 +42,6 @@ compile-scala: target/.java
 ###test-java: compile-test-java
 ###	java -Xmx128m $(JAVA_TEST_CLASSPATH):target/test-classes org.junit.runner.JUnitCore $(TEST_CLASSES)
 ###
-###clean:
-###	rm -f  target/.java target/.java-test
-###	rm -rf target/classes
-###	rm -rf target/generated-sources
-###	rm -f  target/*.jar
 ###
 ###depclean: clean
 ###	rm -f $(CLASSPATH)
