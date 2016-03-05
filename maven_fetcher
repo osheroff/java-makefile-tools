@@ -86,7 +86,7 @@ module MavenFetcher
     def get_var(k)
       @vars    ||= {}
       @vars[k] ||= case k
-        when /^project\.\w+$/
+        when "groupId", "artifactId", /^project\.\w+$/
           key = k.split('.').last
           first_text(@doc.root, key) || first_text(@doc.root, "parent/#{key}")
         else
@@ -175,38 +175,39 @@ module MavenFetcher
     #
     # recursively resolve dependencies in a top-down breadth-first fashion.
     # We do this to make it so the "closest to the top" dependency defines
-    # version.  It's pretty psychotic that this works at all.  Technically there's a concept
-    # of semantic verisoning.  in practice it doesn't appear used at all..?
-    #
-    def resolve(artifacts, scope, deps = Set.new, versions = {}, scopes = {})
+    # the version.
+    def resolve(artifacts, scope, deps = Hash.new, versions = {}, scopes = {}, level = 0)
       # a higher level dependency will set the version, even if it's excluded by the current scope
       artifacts.each do |a|
+        # puts "%s%s -> %s, %s (%s, %s)" % ["  " * level, a.key, scopes[a.key], versions[a.key], a.scope, a.version]
         scopes[a.key] ||= a.scope
         versions[a.key] ||= a.version
       end
 
-      artifacts = artifacts.select { |a| scope.include?(a.scope) }
+      new_artifacts = artifacts.select do |a|
+        scope.include?(scopes[a.key]) && !deps[a.key]
+      end
 
-      new_artifacts = artifacts.to_set - deps
-      return deps if new_artifacts.empty?
+      if new_artifacts.empty?
+        return deps.values
+      end
 
-      new_artifact_dependencies = new_artifacts.map do |a|
+      # expand a list of artifacts into their child dependencies
+      expanded_deps = new_artifacts.map do |a|
+        next unless a.version
+
         pom = get_pom(a)
-
-        pom.dependencies.tap do |new_deps|
-          new_deps.each do |d|
-            d.version = pom.resolve_version(d, versions)
-
-            # if a high-level artifact defines something in "test" scope, and a lower-level one
-            # defines it in "compile", make it "test".
-            if scopes[d.key]
-              d.scope = scopes[d.key]
-            end
-          end
+        pom_deps = pom.dependencies
+        pom_deps.select do |d|
+          d.version = pom.resolve_version(d, versions)
+          d.scope != "provided"
         end
-      end.flatten
+      end.compact.flatten
 
-      resolve(new_artifact_dependencies, Scope.new("compile"), deps | new_artifacts, versions, scopes)
+      new_deps = deps.clone
+      new_artifacts.each { |a| new_deps[a.key] ||= a }
+
+      resolve(expanded_deps, Scope.new("compile"), new_deps, versions, scopes, level + 1)
     end
 
     # http://repo.maven.apache.org/maven2/mysql/mysql-connector-java/5.1.6/mysql-connector-java-5.1.6.pom
